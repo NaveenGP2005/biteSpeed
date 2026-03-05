@@ -17,8 +17,8 @@ class ContactService {
    * Find contact by email or phone number
    */
   async findContactByEmailOrPhone(
-    email?: string,
-    phoneNumber?: string
+    email?: string | null,
+    phoneNumber?: string | null
   ): Promise<Contact[]> {
     let queryText = 'SELECT * FROM contact WHERE "deletedAt" IS NULL AND (';
     const params: any[] = [];

@@ -15,7 +15,7 @@ app.use(cors());
 app.use(express.json());
 
 // Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
@@ -23,20 +23,20 @@ app.get('/health', (req: Request, res: Response) => {
 app.use('/identify', identifyRoutes);
 
 // 404 handler
-app.use((req: Request, res: Response) => {
+app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
 // Error handler
-app.use((err: Error, req: Request, res: Response) => {
+app.use((err: Error, _req: Request, res: Response) => {
   console.error('Unhandled error:', err);
   res.status(500).json({ error: 'Internal server error' });
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`íº€ Server running on http://localhost:${PORT}`);
-  console.log(`í³ API endpoint: http://localhost:${PORT}/identify`);
+  console.log(`ğŸš€ Server running on http://localhost:${PORT}`);
+  console.log(`ğŸ“ API endpoint: http://localhost:${PORT}/identify`);
 });
 
 export default app;
