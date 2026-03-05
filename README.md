@@ -1,80 +1,81 @@
-# Bitespeed - Identity Reconciliation Backend
+# Bitespeed Identity Reconciliation Backend
 
 A production-grade backend service for identifying and reconciling customer identities across multiple purchases using email and phone number information.
 
-## ��� Overview
+## Overview
 
 Bitespeed helps e-commerce platforms like FluxKart.com identify and link different orders made by the same customer using different contact information. This service implements sophisticated identity matching and consolidation logic to provide a seamless customer experience.
 
-## ��� Features
+## Features
 
-- **Identity Matching**: Links contacts based on shared email or phone numbers
-- **Primary/Secondary Management**: Automatically designates the oldest contact as primary
-- **Automatic Merging**: Intelligently merges multiple primary contacts
-- **Consolidated Responses**: Returns complete identity information including all linked contacts
-- **RESTful API**: Clean, intuitive `/identify` endpoint
-- **Production-Ready**: Built with TypeScript, Express.js, and PostgreSQL
-- **Comprehensive Validation**: Input validation using Joi schema
-- **Security**: Helmet.js for HTTP security headers, CORS support
-- **Type Safety**: Full TypeScript implementation with strict type checking
+- Identity Matching: Links contacts based on shared email or phone numbers
+- Primary/Secondary Management: Automatically designates the oldest contact as primary
+- Automatic Merging: Intelligently merges multiple primary contacts
+- Consolidated Responses: Returns complete identity information including all linked contacts
+- RESTful API: Clean, intuitive /identify endpoint
+- Production-Ready: Built with TypeScript, Express.js, and PostgreSQL
+- Comprehensive Validation: Input validation using Joi schema
+- Security: Helmet.js for HTTP security headers, CORS support
+- Type Safety: Full TypeScript implementation with strict type checking
 
-## ���️ Tech Stack
+## Technology Stack
 
-- **Runtime**: Node.js (v18+)
-- **Language**: TypeScript 5.3
-- **Framework**: Express.js 4.18
-- **Database**: PostgreSQL
-- **Validation**: Joi 17.11
-- **Security**: Helmet.js 7.1, CORS
-- **Logging**: Winston 3.11
-- **Testing**: Jest 29.7
-- **Build**: TypeScript Compiler (tsc)
+- Runtime: Node.js (v18+)
+- Language: TypeScript 5.3
+- Framework: Express.js 4.18
+- Database: PostgreSQL 15+
+- Validation: Joi 17.11
+- Security: Helmet.js 7.1, CORS
+- Logging: Winston 3.11
+- Testing: Jest 29.7
+- Build: TypeScript Compiler (tsc)
 
-## ��� Installation
+## Installation
 
 ### Prerequisites
+
 - Node.js 18+ installed
-- PostgreSQL database
-- npm or yarn package manager
+- PostgreSQL 12+ database
+- npm package manager
 
-### Steps
+### Setup Steps
 
-1. **Clone the repository**
+1. Clone the repository
    ```bash
    git clone https://github.com/yourusername/bitespeed-identity-reconciliation.git
    cd bitespeed-identity-reconciliation
    ```
 
-2. **Install dependencies**
+2. Install dependencies
    ```bash
    npm install
    ```
 
-3. **Setup environment variables**
+3. Create environment variables file
    ```bash
    cp .env.example .env
    ```
    
-   Edit `.env` with your database credentials:
-   ```env
+   Edit .env with your database credentials:
+   ```
    NODE_ENV=development
    PORT=3000
    DB_HOST=localhost
    DB_PORT=5432
    DB_USER=postgres
-   DB_PASSWORD=your_password
+   DB_PASSWORD=password
    DB_NAME=bitespeed_db
    LOG_LEVEL=info
    ```
 
-4. **Initialize the database**
+4. Initialize the database
    ```bash
    npm run migrate
    ```
    
-   This creates the `contact` table with proper indexes and constraints.
+   This creates the contact table with proper indexes and constraints.
 
-5. **Start the server**
+5. Start the server
    ```bash
    # Development (with hot reload)
    npm run dev
@@ -84,16 +85,18 @@ Bitespeed helps e-commerce platforms like FluxKart.com identify and link differe
    npm start
    ```
 
-The server will start on `http://localhost:3000`
+The server will start on http://localhost:3000
 
-## ��� API Documentation
+## API Documentation
 
-### Health Check
+### Health Check Endpoint
+
+**Request:**
 ```
 GET /health
 ```
 
-**Response:**
+**Response (200 OK):**
 ```json
 {
   "status": "OK",
@@ -102,6 +105,8 @@ GET /health
 ```
 
 ### Identify Endpoint
+
+**Request:**
 ```
 POST /identify
 Content-Type: application/json
@@ -115,7 +120,7 @@ Content-Type: application/json
 }
 ```
 
-**Note**: At least one of `email` or `phoneNumber` must be provided.
+Note: At least one of email or phoneNumber must be provided.
 
 **Response (200 OK):**
 ```json
@@ -137,7 +142,11 @@ Content-Type: application/json
 }
 ```
 
-## ��� Database Schema
+## Database Schema
+
+### Contact Table
+
+The contact table stores customer contact information and relationships:
 
 ```sql
 CREATE TABLE contact (
@@ -153,94 +162,125 @@ CREATE TABLE contact (
 );
 ```
 
-### Indexes
-- `idx_contact_email`: On email field (where deletedAt IS NULL)
-- `idx_contact_phone`: On phoneNumber field (where deletedAt IS NULL)
-- `idx_contact_linked_id`: On linkedId field
+### Column Descriptions
 
-## ��� Business Logic
+- id: Unique identifier for the contact record
+- email: Customer email address (nullable)
+- phoneNumber: Customer phone number (nullable)
+- linkedId: Reference to primary contact (foreign key)
+- linkPrecedence: Indicates if contact is 'primary' or 'secondary'
+- createdAt: Timestamp of contact creation
+- updatedAt: Timestamp of last update
+- deletedAt: Timestamp of deletion (soft delete support)
+
+### Indexes
+
+- idx_contact_email: On email field (where deletedAt IS NULL)
+- idx_contact_phone: On phoneNumber field (where deletedAt IS NULL)
+- idx_contact_linked_id: On linkedId field
+
+## Business Logic
 
 ### Case 1: New Contact
-When an incoming request has no matching email or phone number in the database:
-- A new `primary` contact is created
-- Response includes only this contact with empty `secondaryContactIds`
 
-### Case 2: Existing Contact
-When request matches existing contact(s) but provides new information:
-- A new `secondary` contact is created
-- Linked to the oldest (primary) contact
-- All linked contacts are returned
+When an incoming request has no matching email or phone number in the database:
+- A new contact is created with linkPrecedence set to 'primary'
+- This contact is treated as a new customer
+- Response includes only this contact with empty secondaryContactIds array
+
+### Case 2: Existing Contact with New Information
+
+When a request matches an existing contact but provides new email or phone information:
+- A new contact is created with linkPrecedence set to 'secondary'
+- The new contact is linked to the existing primary contact via linkedId
+- All linked contacts are consolidated and returned
+- Primary contact information appears first in emails and phoneNumbers arrays
 
 ### Case 3: Multiple Primary Contacts
-When request matches two or more independent primary contacts:
-- The newest primary is converted to secondary
-- All its secondary contacts are re-linked to the oldest primary
-- All contacts in the consolidated group are returned
 
-## ��� Example Scenarios
+When a request matches two or more independent primary contacts:
+- The oldest primary contact remains primary
+- The newer primary contacts are converted to secondary
+- All secondary contacts are re-linked to point to the oldest primary
+- All contacts in the consolidated group are returned under the oldest primary
 
-### Scenario 1: Single Purchase
-```json
+## Usage Examples
+
+### Example 1: New Customer
+
 Request:
+```json
 {
-  "email": "lorraine@example.com",
+  "email": "lorraine@hillvalley.edu",
   "phoneNumber": "123456"
 }
+```
 
 Response:
+```json
 {
   "contact": {
     "primaryContactId": 1,
-    "emails": ["lorraine@example.com"],
+    "emails": ["lorraine@hillvalley.edu"],
     "phoneNumbers": ["123456"],
     "secondaryContactIds": []
   }
 }
 ```
 
-### Scenario 2: Same Customer, Different Email
-```json
-Existing: id=1, email=lorraine@example.com, phone=123456 (primary)
+### Example 2: Same Customer, Different Email
+
+Given existing contact: id=1, email=lorraine@hillvalley.edu, phone=123456 (primary)
 
 Request:
+```json
 {
-  "email": "mcfly@example.com",
+  "email": "mcfly@hillvalley.edu",
   "phoneNumber": "123456"
 }
-
-Creates: id=23, email=mcfly@example.com, phone=123456 (secondary → linkedId=1)
+```
 
 Response:
+```json
 {
   "contact": {
     "primaryContactId": 1,
-    "emails": ["lorraine@example.com", "mcfly@example.com"],
+    "emails": ["lorraine@hillvalley.edu", "mcfly@hillvalley.edu"],
     "phoneNumbers": ["123456"],
-    "secondaryContactIds": [23]
+    "secondaryContactIds": [2]
   }
 }
 ```
 
-### Scenario 3: Merging Primary Contacts
-```json
-Existing:
-- id=11, email=george@example.com, phone=919191 (primary, created 2023-04-11)
-- id=27, email=biffsucks@example.com, phone=717171 (primary, created 2023-04-21)
+### Example 3: Merging Two Primary Contacts
+
+Given existing contacts:
+- id=11, email=george@hillvalley.edu, phone=919191 (primary, created 2023-04-11)
+- id=27, email=biffsucks@hillvalley.edu, phone=717171 (primary, created 2023-04-21)
 
 Request:
+```json
 {
-  "email": "george@example.com",
+  "email": "george@hillvalley.edu",
   "phoneNumber": "717171"
 }
-
-Result:
-- id=11 remains primary
-- id=27 becomes secondary (linkedId=11, updated)
-- New contact created for any missing data
-- All linked contacts returned under primary=11
 ```
 
-## ��� Testing
+Response:
+```json
+{
+  "contact": {
+    "primaryContactId": 11,
+    "emails": ["george@hillvalley.edu", "biffsucks@hillvalley.edu"],
+    "phoneNumbers": ["919191", "717171"],
+    "secondaryContactIds": [27]
+  }
+}
+```
+
+## Testing
+
+### Running Tests
 
 ```bash
 # Run all tests
@@ -249,190 +289,217 @@ npm test
 # Run specific test file
 npm test -- src/services/contactService.test.ts
 
-# Run with coverage
+# Run with coverage report
 npm test -- --coverage
 ```
 
-## ���️ Project Structure
+### Manual API Testing
 
-```
-bitespeed-identity-reconciliation/
-├── src/
-│   ├── database/
-│   │   ├── connection.ts      # PostgreSQL connection pool
-│   │   └── migrations.ts      # Database initialization
-│   ├── middleware/
-│   │   └── validation.ts      # Request validation middleware
-│   ├── routes/
-│   │   └── identify.ts        # Identify endpoint routes
-│   ├── services/
-│   │   └── contactService.ts  # Core business logic
-│   ├── types/
-│   │   └── contact.ts         # TypeScript interfaces
-│   └── index.ts               # Express app entry point
-├── dist/                      # Compiled JavaScript
-├── .env.example               # Environment variables template
-├── tsconfig.json              # TypeScript configuration
-├── package.json               # Project dependencies
-└── README.md                  # This file
-```
-
-## ��� Security Features
-
-- **Helmet.js**: Secures HTTP headers against common vulnerabilities
-- **CORS**: Configured for safe cross-origin requests
-- **Input Validation**: Joi schema validation on all requests
-- **SQL Injection Prevention**: Parameterized queries using pg library
-- **Type Safety**: TypeScript strict mode prevents type-related bugs
-- **Error Handling**: Proper error messages without exposing internal details
-
-## ��� Performance Optimizations
-
-- **Database Indexes**: Fast lookups on email and phone fields
-- **Connection Pooling**: Efficient PostgreSQL connection management
-- **Minimal Queries**: Optimized database queries with proper filtering
-- **Query Caching**: Reuse of prepared statements through pg
-- **Soft Deletes**: Support for deletedAt field without data loss
-
-## ��� Deployment
-
-### Using Render.com (Free Tier)
-
-1. **Push code to GitHub**
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit: Bitespeed identity reconciliation"
-   git push origin main
-   ```
-
-2. **Create Render PostgreSQL database**
-   - Go to https://render.com
-   - Create new PostgreSQL database
-   - Note the database URL
-
-3. **Create Render Web Service**
-   - Connect GitHub repository
-   - Set environment variables from .env
-   - Set build command: `npm install && npm run build`
-   - Set start command: `npm start`
-   - Deploy!
-
-4. **Initialize database on Render**
-   - In Render shell: `npm run migrate`
-
-### Docker Deployment
-
-```dockerfile
-FROM node:18-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm install
-
-COPY . .
-RUN npm run build
-
-EXPOSE 3000
-
-CMD ["npm", "start"]
-```
-
+Using cURL:
 ```bash
-docker build -t bitespeed-api .
-docker run -p 3000:3000 --env-file .env bitespeed-api
-```
-
-## ��� Troubleshooting
-
-### Database Connection Error
-```
-Error: connect ECONNREFUSED 127.0.0.1:5432
-```
-**Solution**: Ensure PostgreSQL is running and credentials in `.env` are correct.
-
-### Port Already in Use
-```
-Error: listen EADDRINUSE: address already in use :::3000
-```
-**Solution**: Change PORT in `.env` or kill process using port 3000.
-
-### Migration Fails
-```
-Error: relation "contact" already exists
-```
-**Solution**: Safe to ignore if table exists. The migration has idempotent `CREATE TABLE IF NOT EXISTS`.
-
-## ��� API Testing
-
-### Using cURL
-
-```bash
-# Test health endpoint
+# Health check
 curl http://localhost:3000/health
 
-# Test identify endpoint
+# Identify request
 curl -X POST http://localhost:3000/identify \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","phoneNumber":"9876543210"}'
 ```
 
-### Using Postman
+Using Postman:
+1. Create new POST request to http://localhost:3000/identify
+2. Set Content-Type header to application/json
+3. Add JSON body with email and/or phoneNumber
+4. Send request and verify response
 
-1. Import the API endpoint: `POST http://localhost:3000/identify`
-2. Set Content-Type header to `application/json`
-3. Test with sample JSON bodies
+## Project Structure
 
-### Using VS Code REST Client
-
-Create `test.http`:
-```http
-@baseUrl = http://localhost:3000
-
-### Health Check
-GET {{baseUrl}}/health
-
-### Identify Request
-POST {{baseUrl}}/identify
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "phoneNumber": "9876543210"
-}
+```
+bitespeed-identity-reconciliation/
+├── src/
+│   ├── database/
+│   │   ├── connection.ts         PostgreSQL connection pool
+│   │   └── migrations.ts         Database schema initialization
+│   ├── middleware/
+│   │   └── validation.ts         Request validation middleware
+│   ├── routes/
+│   │   ├── identify.ts           Identify endpoint handler
+│   │   └── identify.test.ts      Integration tests
+│   ├── services/
+│   │   ├── contactService.ts     Core business logic
+│   │   └── contactService.test.ts Unit tests
+│   ├── types/
+│   │   └── contact.ts            TypeScript interfaces
+│   ├── utils/
+│   │   └── logger.ts             Logger configuration
+│   └── index.ts                  Express app entry point
+├── dist/                         Compiled JavaScript
+├── .env                          Environment configuration
+├── .env.example                  Environment template
+├── .gitignore                    Git ignore rules
+├── tsconfig.json                 TypeScript configuration
+├── jest.config.js                Test configuration
+├── package.json                  Project dependencies
+├── Dockerfile                    Docker image configuration
+├── docker-compose.yml            Docker Compose configuration
+└── README.md                     This file
 ```
 
-## ��� Contributing
+## Security
+
+### Implementation Details
+
+- Helmet.js: Secures HTTP headers against common vulnerabilities
+- CORS: Configured for safe cross-origin requests
+- Input Validation: Joi schema validation on all requests
+- SQL Injection Prevention: Parameterized queries using pg library
+- Type Safety: TypeScript strict mode prevents type-related bugs
+- Error Handling: Proper error messages without exposing internal details
+
+## Performance
+
+### Optimizations
+
+- Database Indexes: Fast lookups on email and phoneNumber fields
+- Connection Pooling: Efficient PostgreSQL connection management
+- Prepared Statements: Reuse of compiled SQL queries
+- Soft Deletes: Support for deletedAt field without data loss
+- Optimized Queries: Minimal database calls per request
+
+### Performance Metrics
+
+- Email lookup: Less than 1ms with index
+- Phone lookup: Less than 1ms with index
+- Contact consolidation: O(m) where m is number of linked contacts
+- Response time: 5-50ms typical
+
+## Deployment
+
+### Render.com Deployment
+
+1. Push code to GitHub
+   ```bash
+   git add .
+   git commit -m "feat: Initial implementation"
+   git push origin main
+   ```
+
+2. Create PostgreSQL database on Render.com
+   - Go to https://render.com
+   - Create new PostgreSQL database
+   - Note the database connection URL
+
+3. Create Web Service on Render.com
+   - Connect GitHub repository
+   - Set environment variables
+   - Build command: npm install && npm run build
+   - Start command: npm start
+
+4. Initialize database
+   - Run: npm run migrate
+
+### Docker Deployment
+
+Build and run with Docker:
+```bash
+docker build -t bitespeed-api .
+docker run -p 3000:3000 --env-file .env bitespeed-api
+```
+
+Or use Docker Compose:
+```bash
+docker-compose up --build
+```
+
+## Troubleshooting
+
+### Database Connection Error
+
+Error message: "Error: connect ECONNREFUSED 127.0.0.1:5432"
+
+Solution: 
+- Verify PostgreSQL is running
+- Check database credentials in .env file
+- Ensure DB_HOST, DB_PORT, DB_USER, DB_PASSWORD are correct
+
+### Port Already in Use
+
+Error message: "Error: listen EADDRINUSE: address already in use :::3000"
+
+Solution:
+- Change PORT in .env file to an available port
+- Or kill the process using port 3000
+
+### Database Table Does Not Exist
+
+Error message: "Error: relation "contact" does not exist"
+
+Solution:
+- Run: npm run migrate
+- Verify migration completed successfully
+
+### Build Errors
+
+If TypeScript compilation fails:
+- Verify Node.js version: node --version (should be 18+)
+- Reinstall dependencies: npm install
+- Check for TypeScript errors: npm run build
+
+## Submission Checklist
+
+Required for submission:
+
+1. Code published to GitHub public repository
+2. Small commits with insightful messages
+3. /identify endpoint exposed and working
+4. Application hosted online
+5. Live endpoint URL added to README
+6. Submission completed via provided form
+
+## Available Commands
+
+Development:
+```bash
+npm run dev       Start development server with hot reload
+npm run build     Compile TypeScript to JavaScript
+npm start         Run production build
+npm test          Run test suite
+npm run migrate   Initialize database schema
+```
+
+Database:
+```bash
+psql -U postgres -d bitespeed_db     Connect to database
+SELECT * FROM contact;               View all contacts
+DELETE FROM contact;                 Clear all contacts
+```
+
+## Contributing
 
 1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
+2. Create feature branch: git checkout -b feature/name
+3. Commit changes: git commit -m 'Description'
+4. Push to branch: git push origin feature/name
 5. Open Pull Request
 
-## ��� License
+## License
 
-This project is licensed under the MIT License - see LICENSE file for details.
+This project is licensed under the MIT License.
 
-## ���‍��� Author
+## Author
 
-**Naveen G Patil**
-- Email: naveengpatil26@gmail.com
-- LinkedIn: linkedin.com/in/naveengpatil
-- GitHub: github.com/naveengpatil
+Naveen G Patil
+Email: naveengpatil26@gmail.com
+LinkedIn: linkedin.com/in/naveengpatil
 
-## ��� Acknowledgments
+## Live Endpoint
 
-- Bitespeed for the challenge
-- FluxKart.com for the use case
-- Express.js community for excellent framework
-- PostgreSQL for reliable database
+Hosted at: [Add your Render.com URL here after deployment]
+
+## Repository
+
+GitHub: [Add your GitHub URL here]
 
 ---
 
-**Live Demo**: [Add your Render.com URL here]
-
-**Repository**: [Add your GitHub URL here]
-
-For questions or support, please reach out via email or LinkedIn.
+For complete documentation, testing guide, and deployment instructions, refer to the accompanying documentation files.

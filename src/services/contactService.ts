@@ -154,13 +154,23 @@ class ContactService {
 
       // Check if request data is already in the linked group
       const allLinkedContacts = await this.findLinkedContacts(primaryId);
-      const dataExists = allLinkedContacts.some(
-        (c) => (email && c.email === email) || (phoneNumber && c.phoneNumber === phoneNumber)
-      );
+      
+      // Check if both email AND phone already exist in the linked group
+      const emailExists = email ? allLinkedContacts.some((c) => c.email === email) : true;
+      const phoneExists = phoneNumber ? allLinkedContacts.some((c) => c.phoneNumber === phoneNumber) : true;
+      
+      const completeDataExists = emailExists && phoneExists;
 
-      // If request contains new data, create secondary contact
-      if (!dataExists && (email !== primaryContacts[0].email || phoneNumber !== primaryContacts[0].phoneNumber)) {
-        await this.createContact(email || null, phoneNumber || null, primaryId, 'secondary');
+      // If request contains new data that doesn't exist, create secondary contact
+      if (!completeDataExists) {
+        // Check if this exact contact already exists to avoid duplicates
+        const exactMatch = allLinkedContacts.some(
+          (c) => c.email === email && c.phoneNumber === phoneNumber
+        );
+        
+        if (!exactMatch) {
+          await this.createContact(email || null, phoneNumber || null, primaryId, 'secondary');
+        }
       }
 
       return this.consolidateContacts(primaryId);
