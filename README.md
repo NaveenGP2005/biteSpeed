@@ -494,11 +494,11 @@ LinkedIn: linkedin.com/in/naveengpatil
 
 ## Live Endpoint
 
-Hosted at: [Add your Render.com URL here after deployment]
+Hosted at: https://bitespeed-api-zhrv.onrender.com
 
 ## Repository
 
-GitHub: [Add your GitHub URL here]
+GitHub: https://github.com/NaveenGP2005/biteSpeed
 
 ---
 
