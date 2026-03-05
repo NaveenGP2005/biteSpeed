@@ -1,6 +1,6 @@
 import pool from './connection';
 
-const initializeDatabase = async () => {
+export const initializeMigrations = async () => {
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS contact (
@@ -29,12 +29,22 @@ const initializeDatabase = async () => {
       CREATE INDEX IF NOT EXISTS idx_contact_linked_id ON contact("linkedId");
     `);
 
-    console.log('✅ Database initialized successfully');
-    process.exit(0);
+    console.log('Database initialized successfully');
   } catch (error) {
-    console.error('❌ Database initialization failed:', error);
-    process.exit(1);
+    console.error('Database initialization failed:', error);
+    throw error;
   }
 };
 
-initializeDatabase();
+// Allow running as standalone script
+if (require.main === module) {
+  initializeMigrations()
+    .then(() => {
+      console.log('Migration complete');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('Migration failed:', error);
+      process.exit(1);
+    });
+}

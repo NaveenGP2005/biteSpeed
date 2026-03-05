@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import identifyRoutes from './routes/identify';
+import { initializeMigrations } from './database/migrations';
 
 dotenv.config();
 
@@ -33,10 +34,23 @@ app.use((err: Error, _req: Request, res: Response) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📍 API endpoint: http://localhost:${PORT}/identify`);
-});
+// Start server with migrations
+const startServer = async () => {
+  try {
+    // Run migrations on startup
+    await initializeMigrations();
+    console.log('Database migrations completed successfully');
+    
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`API endpoint: http://localhost:${PORT}/identify`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 export default app;
